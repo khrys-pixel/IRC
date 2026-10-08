@@ -1,17 +1,9 @@
 #include "IrcServer.hpp"
-#include <iostream>
-#include <stdexcept>
-#include <cstring>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <cstdio> // For perror
-#include <errno.h>
 
 IrcServer::IrcServer(int port, const std::string& password)
     : _port(port), _password(password), _listenSocketFd(-1) {
     initSocket();
+    initCommands();
 }
 
 IrcServer::~IrcServer() {
@@ -19,7 +11,7 @@ IrcServer::~IrcServer() {
     for (size_t i = 0; i < _pollFds.size(); ++i) {
         close(_pollFds[i].fd);
     }
-    // and clean up _clients map ...
+    // Map cleanup
     for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
         delete it->second;
     }
@@ -182,12 +174,12 @@ void IrcServer::handleClientActivity(int fd, int index) {
     if (_pollFds[index].revents & POLLOUT) {
         const std::string& outputBuffer = client->getOutputBuffer();
         if (!outputBuffer.empty()) {
-            int bytesSent = send(fd, outputBuffer.c_str(), outputBuffer.length(), 0);
-
+            int bytesSent = send(fd, outputBuffer.c_str(), outputBuffer.size(), 0);
             if (bytesSent > 0) {
                 // Remove sent bytes from the buffer
                 client->removeFromOutputBuffer(bytesSent);
             } else {
+                // can we read errno after call per subject?
                 if (bytesSent == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                     // Send buffer is full, cannot write right now; POLLOUT will fire again
                 } else {
@@ -217,15 +209,16 @@ void IrcServer::handleClientActivity(int fd, int index) {
 // **CORRECTED**: Scope added
 // Helper function to queue a message for a client and request POLLOUT
 void IrcServer::sendToClientBuffer(Client* client, const std::string& message) {
-    if (!client) return;
+    if (!client)
+        return;
+    std::string formattedMsg = message;
+    if (formattedMsg.length() < 2 || formattedMsg.substr(formattedMsg.length() - 2) != "\r\n") {
+        formattedMsg += "\r\n";
+    }
+    client->addToOutputBuffer(formattedMsg);
 
-    // Buffer the message within the Client object
-    client->addToOutputBuffer(message);
-
-    // Find the client FD in pollFds and request to monitor POLLOUT
-    int clientFd = client->getFd();
-    for (size_t i = 1; i < _pollFds.size(); ++i) {
-        if (_pollFds[i].fd == clientFd) {
+    for (size_t i = 0; i < _pollFds.size(); ++i) {
+        if (_pollFds[i].fd == client->getFd()) {
             _pollFds[i].events |= POLLOUT;
             break;
         }

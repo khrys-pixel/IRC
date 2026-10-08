@@ -1,148 +1,124 @@
 #include "IrcServer.hpp"
-#include <iostream>
-#include <sstream>
-#include <vector>
 
-void IrcServer::parseAndExecute(Client* client, const std::string& commandString) {
-    if (!client || commandString.empty())
-        return;
-
-    std::string prefix;
-    std::string command;
-    std::vector<std::string> parameters;
-    std::string restOfCommand = commandString;
-
-    // --- Prefix Check ---
-    if (!restOfCommand.empty() && restOfCommand[0] == ':') {
-        size_t firstSpace = restOfCommand.find(' ');
-        if (firstSpace != std::string::npos) {
-            prefix = restOfCommand.substr(1, firstSpace - 1);
-            restOfCommand = restOfCommand.substr(firstSpace + 1);
-        } else {
-            return;
-        }
-    }
-
-    // --- Command extraction (case insensitive) ---
-    size_t firstSpace = restOfCommand.find(' ');
-    if (firstSpace != std::string::npos) {
-        command = restOfCommand.substr(0, firstSpace);
-        restOfCommand = restOfCommand.substr(firstSpace + 1);
-    } else {
-        command = restOfCommand;
-        restOfCommand.clear();
-    }
-
-    for (size_t i = 0; i < command.length(); ++i) {
-        if (command[i] >= 'a' && command[i] <= 'z') {
-            command[i] -= ('a' - 'A');
-        }
-    }
-
-    // --- Parameters extraction ---
-    std::stringstream paramStream(restOfCommand);
-    std::string param;
-    while (paramStream >> param) {
-        if (!param.empty() && param[0] == ':') {
-            size_t colonPos = restOfCommand.find(':');
-            std::string trailing = restOfCommand.substr(colonPos + 1);
-            parameters.push_back(trailing);
-            break; 
-        }
-        parameters.push_back(param);
-    }
-
-    // --- Command Handlers ---
-    if (command == "PASS") {
-        if (client->isRegistered()) {
-            client->addToOutputBuffer(":ircserv 462 * :You may not reregister");
-            return;
-        }
-        if (parameters.empty()) {
-            client->addToOutputBuffer(":ircserv 461 * PASS :Not enough parameters");
-            return;
-        }
-        if (parameters[0] == _password) {
-            client->setHasGivenPassword(true);
-        } else {
-            client->addToOutputBuffer(":ircserv 464 * :Password incorrect");
-        }
-    } 
-    else if (command == "NICK") {
-        if (parameters.empty()) {
-            client->addToOutputBuffer(":ircserv 431 * :No nickname given");
-            return;
-        }
-        client->setNickname(parameters[0]);
-        checkAndRegister(client);
-    } 
-    else if (command == "USER") {
-        if (parameters.size() < 4) {
-            client->addToOutputBuffer(":ircserv 461 * USER :Not enough parameters");
-            return;
-        }
-        client->setUsername(parameters[0]);
-        client->setRealname(parameters[3]);
-        checkAndRegister(client);
-    }
-    else if (!client->isRegistered()) {
-        client->addToOutputBuffer(":ircserv 451 * :You have not registered");
-    }
-    else if (command == "JOIN") {
-        handleJoin(client, parameters);
-    }
-    else if (command == "PING") {
-        std::string target = parameters.empty() ? "ircserv" : parameters[0];
-        client->addToOutputBuffer(":ircserv PONG ircserv :" + target);
-    }
+void IrcServer::initCommands() {
+	_commandMap["PASS"] = &IrcServer::handlePass;
+	_commandMap["NICK"] = &IrcServer::handleNick;
+	_commandMap["USER"] = &IrcServer::handleUser;
+	_commandMap["PING"] = &IrcServer::handlePing;
+	_commandMap["JOIN"] = &IrcServer::handleJoin;
+	_commandMap["PRIVMSG"] = &IrcServer::handlePrivmsg;
 }
 
 void IrcServer::checkAndRegister(Client* client) {
-    if (!client->isRegistered() && client->hasGivenPassword() && 
-        !client->getNickname().empty() && !client->getUsername().empty()) 
-    {
-        client->setRegistered(true);
-        std::string nick = client->getNickname();
+	if (!client->isRegistered() && client->hasGivenPassword() && 
+		!client->getNickname().empty() && !client->getUsername().empty()) {
+		client->setRegistered(true);
+		std::string nick = client->getNickname();
 
-        // Standard RFC 1459 registration sequence
-        client->addToOutputBuffer(":ircserv 001 " + nick + " :Welcome to the ft_irc Network " + nick);
-        client->addToOutputBuffer(":ircserv 002 " + nick + " :Your host is ircserv, running version 1.0");
-        client->addToOutputBuffer(":ircserv 003 " + nick + " :This server was created today");
-        client->addToOutputBuffer(":ircserv 004 " + nick + " ircserv 1.0 io itkol");
-    }
+		// Standard RFC 1459 registration sequence
+		sendToClientBuffer(client, ":ircserv 001 " + nick + " :Welcome to the ft_irc Network " + nick);
+		sendToClientBuffer(client, ":ircserv 002 " + nick + " :Your host is ircserv, running version 1.0");
+		sendToClientBuffer(client, ":ircserv 003 " + nick + " :This server was created today");
+		sendToClientBuffer(client, ":ircserv 004 " + nick + " ircserv 1.0 io itkol");
+	}
+}
+
+void	IrcServer::handlePass(Client* client, const std::vector<std::string>& params) {
+	if (client->isRegistered()) {
+		sendToClientBuffer(client, ":ircserv 462 * :You may not reregister");
+		return;
+	}
+	if (params.empty()) {
+		sendToClientBuffer(client, ":ircserv 461 * PASS :Not enough parameters");
+		return;
+	}
+	if (params[0] == _password) {
+		client->setHasGivenPassword(true);
+	} else {
+		sendToClientBuffer(client, ":ircserv 464 * :Password incorrect");
+	}
+}
+
+void	IrcServer::handleNick(Client* client, const std::vector<std::string>& params) {
+	if (params.empty()) {
+		sendToClientBuffer(client, ":ircserv 431 * :No nickname given");
+		return;
+	}
+	client->setNickname(params[0]);
+	checkAndRegister(client);
+}
+
+void	IrcServer::handleUser(Client* client, const std::vector<std::string>& params) {
+	if (params.size() < 4) {
+		sendToClientBuffer(client, ":ircserv 461 * USER :Not enough parameters");
+		return;
+	}
+	client->setUsername(params[0]);
+	client->setRealname(params[3]);
+	checkAndRegister(client);
+}
+
+void	IrcServer::handlePing(Client* client, const std::vector<std::string>& params) {
+	std::string target = params.empty() ? "ircserv" : params[0];
+	sendToClientBuffer(client, ":ircserv PONG ircserv :" + target);
 }
 
 void IrcServer::handleJoin(Client* client, const std::vector<std::string>& params) {
-    if (params.empty()) {
-        client->addToOutputBuffer(":ircserv 461 " + client->getNickname() + " JOIN :Not enough parameters");
-        return;
-    }
+	if (params.empty()) {
+		sendToClientBuffer(client, ":ircserv 461 " + client->getNickname() + " JOIN :Not enough parameters");
+		return;
+	}
 
-    std::string chanName = params[0];
-    if (chanName.empty() || chanName[0] != '#') {
-        client->addToOutputBuffer(":ircserv 403 " + client->getNickname() + " " + chanName + " :No such channel");
-        return;
-    }
+	std::string chanName = params[0];
+	if (chanName.empty() || chanName[0] != '#') {
+		sendToClientBuffer(client, ":ircserv 403 " + client->getNickname() + " " + chanName + " :No such channel");
+		return;
+	}
 
-    // Retrieve or create the channel
-    if (_channels.find(chanName) == _channels.end()) {
-        _channels[chanName] = new Channel(chanName);
-    }
-    Channel* chan = _channels[chanName];
-    chan->addMember(client);
+	// Retrieve or create the channel
+	if (_channels.find(chanName) == _channels.end()) {
+		_channels[chanName] = new Channel(chanName);
+	}
+	Channel* chan = _channels[chanName];
+	chan->addMember(client);
 
-    // 1. Broadcast JOIN notification to channel members
-    std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@127.0.0.1 JOIN " + chanName;
-    chan->broadcast(joinMsg);
+	// Broadcast JOIN notification to channel members
+	std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@127.0.0.1 JOIN " + chanName;
+	chan->broadcast(joinMsg);
 
-    // 2. Send Channel Topic (331 or 332)
-    if (chan->getTopic().empty()) {
-        client->addToOutputBuffer(":ircserv 331 " + client->getNickname() + " " + chanName + " :No topic is set");
-    } else {
-        client->addToOutputBuffer(":ircserv 332 " + client->getNickname() + " " + chanName + " :" + chan->getTopic());
-    }
+	// Send Channel Topic (331 or 332)
+	if (chan->getTopic().empty()) {
+		sendToClientBuffer(client, ":ircserv 331 " + client->getNickname() + " " + chanName + " :No topic is set");
+	} else {
+		sendToClientBuffer(client, ":ircserv 332 " + client->getNickname() + " " + chanName + " :" + chan->getTopic());
+	}
 
-    // 3. Send Member List (353) & End of /NAMES (366)
-    client->addToOutputBuffer(":ircserv 353 " + client->getNickname() + " = " + chanName + " :" + chan->getMemberListString());
-    client->addToOutputBuffer(":ircserv 366 " + client->getNickname() + " " + chanName + " :End of /NAMES list");
+	// Send Member List (353) & End of /NAMES (366)
+	sendToClientBuffer(client, ":ircserv 353 " + client->getNickname() + " = " + chanName + " :" + chan->getMemberListString());
+	sendToClientBuffer(client, ":ircserv 366 " + client->getNickname() + " " + chanName + " :End of /NAMES list");
+
+}
+
+void	IrcServer::handlePrivmsg(Client* client, const std::vector<std::string>& params) {
+		Client  *reciever = NULL;
+
+		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+			if (it->second->getNickname() == params[0]) {
+				reciever = it->second;
+				break;
+			}
+		}
+		if (!reciever) {
+			return ;
+		}
+
+		std::vector<std::string> args(params.begin() + 1, params.end());
+		std::string	msg = " ";
+		for (std::vector<std::string>::const_iterator i = args.begin(); i != args.end(); ++i) {
+			if (i != args.begin())
+				msg += " ";
+			msg += *i;
+		}
+		std::string prefix = ":" + client->getNickname();
+		sendToClientBuffer(reciever, prefix + " PRIVMSG " + reciever->getNickname() + msg);
 }

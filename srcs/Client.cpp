@@ -1,5 +1,4 @@
 #include "Client.hpp"
-#include <iostream>
 
 Client::Client(int fd, const std::string& ip, int port) 
     : _fd(fd), 
@@ -22,7 +21,6 @@ bool Client::getNextCommand(std::string& commandOut) {
     if (rnPos != std::string::npos) {
         // Complete command obtained
         commandOut = _inputBuffer.substr(0, rnPos);
-        
         // Remove processed command and the \r\n terminator from input buffer
         _inputBuffer.erase(0, rnPos + 2);
         return true; 

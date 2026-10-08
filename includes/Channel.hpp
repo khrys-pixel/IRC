@@ -13,6 +13,7 @@ private:
     std::map<int, Client*>  _operators;
 
 public:
+    // AGAINST NORM, will need to move in cpp file
     Channel(const std::string& name) : _name(name) {}
 
     const std::string& getName() const { return _name; }
