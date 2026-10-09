@@ -84,7 +84,7 @@ void IrcServer::handleJoin(Client* client, const std::vector<std::string>& param
 
 	// Broadcast JOIN notification to channel members
 	std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@127.0.0.1 JOIN " + chanName;
-	chan->broadcast(joinMsg);
+	chan->broadcast(joinMsg, NULL);
 
 	// Send Channel Topic (331 or 332)
 	if (chan->getTopic().empty()) {
@@ -99,26 +99,61 @@ void IrcServer::handleJoin(Client* client, const std::vector<std::string>& param
 
 }
 
+void	IrcServer::formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg) {
+	std::string prefix = ":" + sender->getNickname();
+	std::string	target = (reciever) ? reciever->getNickname() : channel->getName();
+	std::string	fullMsg = prefix + " PRIVMSG " + target + msg;
+	if (reciever)
+		sendToClientBuffer(reciever, fullMsg);
+	else {
+		const std::map<int, Client*>& channelMembers = channel->getMembers();
+		for (std::map<int, Client*>::const_iterator m = channelMembers.begin(); m != channelMembers.end(); ++m) {
+			if (m->second != sender)
+				sendToClientBuffer(m->second, fullMsg);
+		}
+	}
+}
+
 void	IrcServer::handlePrivmsg(Client* client, const std::vector<std::string>& params) {
-		Client  *reciever = NULL;
+	Client  *reciever = NULL;
 
-		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
-			if (it->second->getNickname() == params[0]) {
-				reciever = it->second;
-				break;
-			}
+	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+		if (it->second->getNickname() == params[0]) {
+			reciever = it->second;
+			break;
 		}
-		if (!reciever) {
-			return ;
-		}
+	}
+	if (!reciever) {
+		if (params[0][0] == '#' && params[0][1])
+			handleChannelMsg(client, params);
+		return ;
+	}
 
-		std::vector<std::string> args(params.begin() + 1, params.end());
-		std::string	msg = " ";
-		for (std::vector<std::string>::const_iterator i = args.begin(); i != args.end(); ++i) {
-			if (i != args.begin())
-				msg += " ";
-			msg += *i;
-		}
-		std::string prefix = ":" + client->getNickname();
-		sendToClientBuffer(reciever, prefix + " PRIVMSG " + reciever->getNickname() + msg);
+	std::vector<std::string> args(params.begin() + 1, params.end());
+	std::string	msg = " ";
+	for (std::vector<std::string>::const_iterator i = args.begin(); i != args.end(); ++i) {
+		if (i != args.begin())
+			msg += " ";
+		msg += *i;
+	}
+	formatAndSend(reciever, client, NULL, msg);
+}
+
+void	IrcServer::handleChannelMsg(Client* client, const std::vector<std::string>& params) {
+	std::string	channelName = params[0];
+	std::map<std::string, Channel*>::iterator it = _channels.find(channelName);
+	if (it == _channels.end()) {
+		sendToClientBuffer(client, ":ircserv 403 " + client->getNickname() + " " + channelName + " :No such channel");
+		return;
+	}
+
+	Channel* channel = it->second;
+	std::vector<std::string> args(params.begin() + 1, params.end());
+	std::string	msg = " ";
+	for (std::vector<std::string>::const_iterator i = args.begin(); i != args.end(); ++i) {
+		if (i != args.begin())
+			msg += " ";
+		msg += *i;
+	}
+	formatAndSend(NULL, client, channel, msg);
 }

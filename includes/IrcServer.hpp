@@ -2,6 +2,7 @@
 # define IRCSERVER_HPP
 
 # include <string>
+# include <cstring>
 # include <vector>
 # include <map>
 # include <poll.h>
@@ -34,9 +35,10 @@ class IrcServer {
 		std::map<std::string, Channel*>	_channels;
 		std::map<int, Client*>			_clients;
 
-		// Internal initialization & socket helpers
-		void initSocket();
-		void setSocketNonBlocking(int fd);
+		// Internal helpers
+		void	initSocket();
+		void	setSocketNonBlocking(int fd);
+		void	formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg);
 
 		// Event handlers
 		void	executeCommand(Client *client, std::string &command, std::vector<std::string> &parameters);
@@ -55,6 +57,7 @@ class IrcServer {
 		void	handlePing(Client* client, const std::vector<std::string>& params);
 		void	handleJoin(Client* client, const std::vector<std::string>& params);
 		void	handlePrivmsg(Client* client, const std::vector<std::string>& params);
+		void	handleChannelMsg(Client* client, const std::vector<std::string>& params);
 		void	initCommands();
 
 	public:
