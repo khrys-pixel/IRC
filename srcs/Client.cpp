@@ -1,11 +1,11 @@
 #include "Client.hpp"
+#include "Channel.hpp"
 
 Client::Client(int fd, const std::string& ip, int port) 
     : _fd(fd), 
       _ip(ip), 
       _port(port), 
-      _isRegistered(false), 
-      _isOperator(false), 
+      _isRegistered(false),
       _hasGivenPassword(false) {}
 
 Client::~Client() {}
@@ -49,24 +49,61 @@ void Client::removeFromOutputBuffer(int bytesSent) {
 }
 
 // Getters and Setters
-int Client::getFd() const { return _fd; }
-const std::string& Client::getIp() const { return _ip; }
-int Client::getPort() const { return _port; }
+int Client::getFd() const {
+    return _fd;
+}
 
-bool Client::hasGivenPassword() const { return _hasGivenPassword; }
-void Client::setHasGivenPassword(bool status) { _hasGivenPassword = status; }
+const std::string& Client::getIp() const {
+    return _ip;
+}
 
-bool Client::isRegistered() const { return _isRegistered; }
-void Client::setRegistered(bool status) { _isRegistered = status; }
+int Client::getPort() const {
+    return _port;
+}
 
-bool Client::isOperator() const { return _isOperator; }
-void Client::setOperator(bool status) { _isOperator = status; }
+bool Client::hasGivenPassword() const {
+    return _hasGivenPassword;
+}
 
-const std::string& Client::getNickname() const { return _nickname; }
-void Client::setNickname(const std::string& nick) { _nickname = nick; }
+void Client::setHasGivenPassword(bool status) {
+    _hasGivenPassword = status;
+}
 
-const std::string& Client::getUsername() const { return _username; }
-void Client::setUsername(const std::string& user) { _username = user; }
+bool Client::isRegistered() const {
+    return _isRegistered;
+}
 
-const std::string& Client::getRealname() const { return _realname; }
-void Client::setRealname(const std::string& real) { _realname = real; }
+void Client::setRegistered(bool status) {
+    _isRegistered = status;
+}
+
+
+const std::string& Client::getNickname() const {
+    return _nickname;
+}
+
+void Client::setNickname(const std::string& nick) {
+    _nickname = nick;
+}
+
+
+const std::string& Client::getUsername() const {
+    return _username;
+}
+
+void Client::setUsername(const std::string& user) {
+    _username = user;
+}
+
+
+const std::string& Client::getRealname() const {
+    return _realname;
+}
+
+void Client::setRealname(const std::string& real) {
+    _realname = real;
+}
+
+std::string Client::getHostmask() const {
+    return _nickname + "!" + _username + "@" + _ip;
+}

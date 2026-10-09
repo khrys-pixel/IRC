@@ -18,11 +18,15 @@ public:
     const std::string& getName() const;
     const std::string& getTopic() const;
     const std::map<int, Client*>& getMembers() const;
+    const std::map<int, Client*>& getOperators() const;
 
-    void addMember(Client* client);
-    void removeMember(int fd);
-    bool isEmpty() const;
-    void broadcast(const std::string& message, Client* sender);
+    void	addMember(Client* client);
+    void	addOperator(Client *client);
+    void	removeMember(int fd);
+    void	removeOperator(int fd);
+    bool	isChannelMember(Client *client) const;
+    bool	isOperator(Client *client) const;
+    bool	isEmpty() const;
 
     std::string getMemberListString() const;
 };

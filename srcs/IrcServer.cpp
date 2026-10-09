@@ -233,3 +233,34 @@ void IrcServer::disconnectClient(int fd, int index) {
     delete _clients[fd];
     _clients.erase(fd);
 }
+
+Client	*IrcServer::findClientByNick(const std::string &nick) {
+	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); it++) {
+		if (it->second->getNickname() == nick)
+			return it->second;
+	}
+	return NULL;
+}
+
+void	IrcServer::formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg, e_op op) {
+	std::string prefix = ":" + sender->getHostmask();
+	std::string	target = (reciever) ? reciever->getNickname() : channel->getName();
+    std::string opType = (op == MSG) ? " PRIVMSG " : " MODE ";
+	std::string	fullMsg = prefix + opType + target + msg;
+	if (reciever)
+		sendToClientBuffer(reciever, fullMsg);
+	else {
+		const std::map<int, Client*>& channelMembers = channel->getMembers();
+		for (std::map<int, Client*>::const_iterator m = channelMembers.begin(); m != channelMembers.end(); ++m) {
+			if (m->second != sender || op == MODE)
+				sendToClientBuffer(m->second, fullMsg);
+		}
+	}
+}
+
+void	IrcServer::makeOperator(Channel *channel, Client *client, bool status) {
+    if (status == true)
+		channel->addOperator(client);
+	else
+		channel->removeOperator(client->getFd());
+}

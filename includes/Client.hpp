@@ -6,6 +6,7 @@
 
 
 # include <stdio.h> //REMOVE LATER
+class Channel;
 
 
 class Client {
@@ -18,7 +19,6 @@ private:
 	std::string _outputBuffer;
 
 	bool		_isRegistered;
-	bool		_isOperator;
 	bool		_hasGivenPassword;
 
 	std::string	_nickname;
@@ -47,9 +47,6 @@ public:
 	bool isRegistered() const;
 	void setRegistered(bool status);
 
-	bool isOperator() const;
-	void setOperator(bool status);
-
 	const std::string& getNickname() const;
 	void setNickname(const std::string& nick);
 
@@ -58,6 +55,8 @@ public:
 
 	const std::string& getRealname() const;
 	void setRealname(const std::string& real);
+
+	std::string getHostmask() const;
 };
 
 #endif
