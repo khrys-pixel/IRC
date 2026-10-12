@@ -41,11 +41,6 @@
 
 
 
-typedef enum	e_op {
-	MSG,
-	MODE
-}	t_op;
-
 class IrcServer {
 	private:
 		int					_port;
@@ -60,9 +55,10 @@ class IrcServer {
 		// Internal helpers
 		void	initSocket();
 		void	setSocketNonBlocking(int fd);
-		void	formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg, e_op op);
+		void	formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg, const std::string &op);
 		Client	*findClientByNick(const std::string &nick);
 		void	makeOperator(Channel *channel, Client *client, bool status);
+		bool	getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName);
 
 		// Event handlers
 		void	executeCommand(Client *client, std::string &command, std::vector<std::string> &parameters);
@@ -83,6 +79,7 @@ class IrcServer {
 		void	handlePrivmsg(Client* client, const std::vector<std::string>& params);
 		void	handleChannelMsg(Client* client, const std::vector<std::string>& params);
 		void	handleMode(Client* client, const std::vector<std::string>& params);
+		void	handleKick(Client* client, const std::vector<std::string>& params);
 		void	initCommands();
 
 	public:

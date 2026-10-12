@@ -8,6 +8,7 @@ void IrcServer::initCommands() {
 	_commandMap["JOIN"] = &IrcServer::handleJoin;
 	_commandMap["PRIVMSG"] = &IrcServer::handlePrivmsg;
 	_commandMap["MODE"] = &IrcServer::handleMode;
+	_commandMap["KICK"] = &IrcServer::handleKick;
 }
 
 void IrcServer::checkAndRegister(Client* client) {
@@ -132,7 +133,7 @@ void	IrcServer::handlePrivmsg(Client* client, const std::vector<std::string>& pa
 			msg += " ";
 		msg += *i;
 	}
-	formatAndSend(reciever, client, NULL, msg, MSG);
+	formatAndSend(reciever, client, NULL, msg, "PRIVMSG");
 }
 
 void	IrcServer::handleChannelMsg(Client* client, const std::vector<std::string>& params) {
@@ -151,39 +152,51 @@ void	IrcServer::handleChannelMsg(Client* client, const std::vector<std::string>&
 			msg += " ";
 		msg += *i;
 	}
-	formatAndSend(NULL, client, channel, msg, MSG);
+	formatAndSend(NULL, client, channel, msg, "PRIVMSG");
 }
+
+bool	IrcServer::getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName) {
+	*channel = NULL;
+	*target = NULL;
+
+	std::map<std::string, Channel*>::iterator it = _channels.find(cName);
+	if (it == _channels.end()) {
+		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_VAL + client->getNickname() + " " + cName + ERR_NOSUCHCHANNEL_MSG);
+		return false;
+	}
+	Channel	*chan = it->second;
+	if (!chan->isOperator(client)) {
+		sendToClientBuffer(client, ERR_CHANOPRIVSNEEDED_VAL + client->getNickname() + " " + chan->getName() + ERR_CHANOPRIVSNEEDED_MSG);
+		return false;
+	}
+
+	Client	*clientTarget = findClientByNick(tName);
+	if (!clientTarget) {
+		sendToClientBuffer(client, ERR_NOSUCHNICK_VAL + client->getNickname() + " " + tName + ERR_NOSUCHNICK_MSG);
+		return false;
+	}
+	if (!chan->isChannelMember(clientTarget)) {
+		sendToClientBuffer(client, ERR_USERNOTINCHANNEL_VAL + client->getNickname() + " " + clientTarget->getNickname()
+							+ " " + chan->getName() + ERR_USERNOTINCHANNEL_MSG);
+		return false;
+	}
+	*channel = chan;
+	*target = clientTarget;
+	return true;
+}
+
 
 void	IrcServer::handleMode(Client* client, const std::vector<std::string>& params) {
 	if (params.size() < 3) {
 		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_VAL + client->getNickname() + " MODE" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
-	std::string	channelName = params[0];
-	std::map<std::string, Channel*>::iterator it = _channels.find(channelName);
-	if (it == _channels.end()) {
-		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_VAL + client->getNickname() + " " + channelName + ERR_NOSUCHCHANNEL_MSG);
-		return;
-	}
-	Channel* channel = it->second;
-	if (!channel->isOperator(client)) {
-		std::string	errMsg = ERR_CHANOPRIVSNEEDED_VAL + client->getNickname() + " " + channel->getName() + ERR_CHANOPRIVSNEEDED_MSG;
-		sendToClientBuffer(client, errMsg);
+	
+	Channel* channel;
+	Client	*clientTarget;
+	if (!getInfo(client, &channel, &clientTarget, params[0], params[2]))
 		return ;
-	}
 
-	Client	*clientTarget = findClientByNick(params[2]);
-	if (!clientTarget) {
-		std::string	errMsg = ERR_NOSUCHNICK_VAL + client->getNickname() + " " + channel->getName() + ERR_NOSUCHNICK_VAL;
-		sendToClientBuffer(client, errMsg);
-		return ;
-	}
-	if (!channel->isChannelMember(clientTarget)) {
-		std::string	errMsg = ERR_USERNOTINCHANNEL_VAL + client->getNickname() + " " + clientTarget->getNickname() 
-							+ " " + channel->getName() + ERR_USERNOTINCHANNEL_MSG;
-		sendToClientBuffer(client, errMsg);
-		return ;
-	}
 	std::string	op = params[1];
 	std::string	msg = " " + op + " " + clientTarget->getNickname();
 	if (op == "+o") {
@@ -194,5 +207,26 @@ void	IrcServer::handleMode(Client* client, const std::vector<std::string>& param
 		sendToClientBuffer(client, ERR_UMODEUNKNOWNFLAG_VAL + op + ERR_UMODEUNKNOWNFLAG_MSG);
 		return ;
 	}
-	formatAndSend(NULL, client, channel, msg, MODE);
+	formatAndSend(NULL, client, channel, msg, "MODE");
+}
+
+void	IrcServer::handleKick(Client* client, const std::vector<std::string>& params) {
+	if (params.size() < 2) {
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_VAL + client->getNickname() + " KICK" + ERR_NEEDMOREPARAMS_MSG);
+		return;
+	}
+
+	Channel* channel;
+	Client	*clientTarget;
+
+	if (!getInfo(client, &channel, &clientTarget, params[0], params[1]))
+		return ;
+
+	std::string	comment = client->getNickname();
+	if (params.size() > 2 && !params[2].empty())
+		comment = params[2];
+
+	std::string	msg = " " + clientTarget->getNickname() + " :" + comment;
+	formatAndSend(NULL, client, channel, msg, "KICK");
+	channel->removeMember(clientTarget->getFd());
 }

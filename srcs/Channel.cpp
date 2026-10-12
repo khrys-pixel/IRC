@@ -30,7 +30,8 @@ void	Channel::addOperator(Client* client) {
 
 void	Channel::removeMember(int fd) {
 	_members.erase(fd);
-	_operators.erase(fd);
+	if (_operators.count(fd) > 0)
+		_operators.erase(fd);
 }
 
 void	Channel::removeOperator(int fd) {
