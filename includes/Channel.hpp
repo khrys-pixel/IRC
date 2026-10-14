@@ -7,30 +7,31 @@
 
 class Channel {
 private:
-    std::string             _name;
-    std::string             _topic;
-    std::map<int, Client*>  _members;
-    std::map<int, Client*>  _operators;
-    bool                    _inviteOnly;
+	std::string             _name;
+	std::string             _topic;
+	std::map<int, Client*>  _members;
+	std::map<int, Client*>  _operators;
+	bool                    _inviteOnly;
 
 public:
-    Channel(const std::string& name);
+	Channel(const std::string& name);
 
-    const std::string& getName() const;
-    const std::string& getTopic() const;
-    const std::map<int, Client*>& getMembers() const;
-    const std::map<int, Client*>& getOperators() const;
+	const std::string&				getName() const;
+	const std::string&				getTopic() const;
+	void							setTopic(const std::string &newTopic);
+	const std::map<int, Client*>	&getMembers() const;
+	const std::map<int, Client*>	&getOperators() const;
 
-    void	addMember(Client* client);
-    void	addOperator(Client *client);
-    void	removeMember(int fd);
-    void	removeOperator(int fd);
-    bool	isChannelMember(Client *client) const;
-    bool	isOperator(Client *client) const;
-    bool	isEmpty() const;
-    bool    isInviteOnly();
+	void	addMember(Client* client);
+	void	addOperator(Client *client);
+	void	removeMember(int fd);
+	void	removeOperator(int fd);
+	bool	isChannelMember(Client *client) const;
+	bool	isOperator(Client *client) const;
+	bool	isEmpty() const;
+	bool    isInviteOnly();
 
-    std::string getMemberListString() const;
+	std::string getMemberListString() const;
 };
 
 #endif

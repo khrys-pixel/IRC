@@ -251,7 +251,7 @@ void	IrcServer::formatAndSend(Client *reciever, Client *sender, Channel *channel
 	else {
 		const std::map<int, Client*>& channelMembers = channel->getMembers();
 		for (std::map<int, Client*>::const_iterator m = channelMembers.begin(); m != channelMembers.end(); ++m) {
-			if (m->second != sender || (op == "MODE" || op == "KICK"))
+			if (m->second != sender || (op == "MODE" || op == "KICK" || op == "TOPIC"))
 				sendToClientBuffer(m->second, fullMsg);
 		}
 	}

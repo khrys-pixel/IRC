@@ -10,6 +10,7 @@ void IrcServer::initCommands() {
 	_commandMap["MODE"] = &IrcServer::handleMode;
 	_commandMap["KICK"] = &IrcServer::handleKick;
 	_commandMap["INVITE"] = &IrcServer::handleInvite;
+	_commandMap["TOPIC"] = &IrcServer::handleTopic;
 }
 
 void IrcServer::checkAndRegister(Client* client) {
@@ -221,7 +222,7 @@ void	IrcServer::handleMode(Client* client, const std::vector<std::string>& param
 	formatAndSend(NULL, client, channel, msg, "MODE");
 }
 
-// Syntax: KICK #channel nickname [optional]:comment
+// Syntax: KICK #channel nickname [:comment]
 void	IrcServer::handleKick(Client* client, const std::vector<std::string>& params) {
 	if (params.size() < 2) {
 		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " KICK" + ERR_NEEDMOREPARAMS_MSG);
@@ -258,4 +259,36 @@ void	IrcServer::handleInvite(Client* client, const std::vector<std::string>& par
 	sendToClientBuffer(client, RPL_INVITING_CODE + client->getNickname() + " " + targetClient->getNickname() + " " + channel->getName());
 	std::string	msg = " :" + channel->getName();
 	formatAndSend(targetClient, client, NULL, msg, " INVITE");	
+}
+
+// Syntax: TOPIC #channel [newtopic]
+void	IrcServer::handleTopic(Client* client, const std::vector<std::string>& params) {
+	if (params.size() < 1) {
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " TOPIC" + ERR_NEEDMOREPARAMS_MSG);
+		return ;
+	}
+
+	std::map<std::string, Channel*>::iterator it = _channels.find(params[0]);
+	if (it == _channels.end()) {
+		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_CODE + client->getNickname() + " " + params[0] + ERR_NOSUCHCHANNEL_MSG);
+		return ;
+	}
+	Channel	*channel = it->second;
+
+	if (params.size() == 1) {
+		std::string	topic = channel->getTopic();
+		if (topic.empty()) {
+			sendToClientBuffer(client, RPL_NOTOPIC_CODE + channel->getName() + RPL_NOTOPIC_MSG);
+			return ;
+		}
+		sendToClientBuffer(client, RPL_TOPIC_CODE + channel->getName() + " :" + topic);
+		return ;
+	}
+
+	if (!channel->isOperator(client)) {
+		sendToClientBuffer(client, ERR_CHANOPRIVSNEEDED_CODE + client->getNickname() + " " + channel->getName() + ERR_CHANOPRIVSNEEDED_MSG);
+		return ;
+	}
+	channel->setTopic(params[1]);
+	formatAndSend(NULL, client, channel, " :" + params[1], "TOPIC");
 }

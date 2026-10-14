@@ -12,6 +12,10 @@ const std::string	&Channel::getTopic() const {
 	return _topic;
 }
 
+void	Channel::setTopic(const std::string &newTopic) {
+	_topic = newTopic;
+}
+
 const std::map<int, Client*>	&Channel::getMembers() const {
 	return _members;
 }

@@ -39,6 +39,9 @@
 # define ERR_UMODEUNKNOWNFLAG_CODE ":ircserv 501 "
 # define ERR_UMODEUNKNOWNFLAG_MSG " :Unknown MODE flag"
 # define RPL_INVITING_CODE ":ircserv 341 "
+# define RPL_NOTOPIC_CODE ":ircserv 332 "
+# define RPL_NOTOPIC_MSG " :No topic is set"
+# define RPL_TOPIC_CODE ":ircserv 332 "
 
 
 
@@ -82,6 +85,7 @@ class IrcServer {
 		void	handleMode(Client* client, const std::vector<std::string>& params);
 		void	handleKick(Client* client, const std::vector<std::string>& params);
 		void	handleInvite(Client* client, const std::vector<std::string>& params);
+		void	handleTopic(Client* client, const std::vector<std::string>& params);
 		void	initCommands();
 
 	public:
