@@ -1,7 +1,7 @@
 #include "Channel.hpp"
 
 Channel::Channel(const std::string& name)
-	: _name(name)
+	: _name(name), _inviteOnly(false)
 {}
 
 const std::string	&Channel::getName() const { 
@@ -40,6 +40,10 @@ void	Channel::removeOperator(int fd) {
 
 bool	Channel::isEmpty() const {
 	return _members.empty();
+}
+
+bool	Channel::isInviteOnly() {
+	return _inviteOnly;
 }
 
 std::string	Channel::getMemberListString() const {

@@ -24,20 +24,21 @@
 
 # include <stdio.h> //REMOVE LATER
 
-# define ERR_NOSUCHNICK_VAL ":ircserv 401 "
+# define ERR_NOSUCHNICK_CODE ":ircserv 401 "
 # define ERR_NOSUCHNICK_MSG " :No such nick/channel"
-# define ERR_NOSUCHCHANNEL_VAL ":ircserv 403 "
+# define ERR_NOSUCHCHANNEL_CODE ":ircserv 403 "
 # define ERR_NOSUCHCHANNEL_MSG " :No such channel"
-# define ERR_USERNOTINCHANNEL_VAL ":ircserv 441 "
+# define ERR_USERNOTINCHANNEL_CODE ":ircserv 441 "
 # define ERR_USERNOTINCHANNEL_MSG " :They aren't on that channel"
-# define ERR_NEEDMOREPARAMS_VAL ":ircserv 461 "
+# define ERR_NEEDMOREPARAMS_CODE ":ircserv 461 "
 # define ERR_NEEDMOREPARAMS_MSG " :Not enough parameters"
-# define ERR_NOPRIVILEGES_VAL ":ircserv 481 "
+# define ERR_NOPRIVILEGES_CODE ":ircserv 481 "
 # define ERR_NOPRIVILEGES_MSG " :Permission Denied - You're not an operator"
-# define ERR_CHANOPRIVSNEEDED_VAL ":ircserv 482 "
+# define ERR_CHANOPRIVSNEEDED_CODE ":ircserv 482 "
 # define ERR_CHANOPRIVSNEEDED_MSG " :You're not channel operator"
-# define ERR_UMODEUNKNOWNFLAG_VAL ":ircserv 501 "
+# define ERR_UMODEUNKNOWNFLAG_CODE ":ircserv 501 "
 # define ERR_UMODEUNKNOWNFLAG_MSG " :Unknown MODE flag"
+# define RPL_INVITING_CODE ":ircserv 341 "
 
 
 
@@ -58,7 +59,7 @@ class IrcServer {
 		void	formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg, const std::string &op);
 		Client	*findClientByNick(const std::string &nick);
 		void	makeOperator(Channel *channel, Client *client, bool status);
-		bool	getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName);
+		bool	getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember);
 
 		// Event handlers
 		void	executeCommand(Client *client, std::string &command, std::vector<std::string> &parameters);
@@ -80,6 +81,7 @@ class IrcServer {
 		void	handleChannelMsg(Client* client, const std::vector<std::string>& params);
 		void	handleMode(Client* client, const std::vector<std::string>& params);
 		void	handleKick(Client* client, const std::vector<std::string>& params);
+		void	handleInvite(Client* client, const std::vector<std::string>& params);
 		void	initCommands();
 
 	public:

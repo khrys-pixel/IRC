@@ -11,6 +11,7 @@ private:
     std::string             _topic;
     std::map<int, Client*>  _members;
     std::map<int, Client*>  _operators;
+    bool                    _inviteOnly;
 
 public:
     Channel(const std::string& name);
@@ -27,6 +28,7 @@ public:
     bool	isChannelMember(Client *client) const;
     bool	isOperator(Client *client) const;
     bool	isEmpty() const;
+    bool    isInviteOnly();
 
     std::string getMemberListString() const;
 };

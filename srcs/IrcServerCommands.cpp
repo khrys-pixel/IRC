@@ -9,6 +9,7 @@ void IrcServer::initCommands() {
 	_commandMap["PRIVMSG"] = &IrcServer::handlePrivmsg;
 	_commandMap["MODE"] = &IrcServer::handleMode;
 	_commandMap["KICK"] = &IrcServer::handleKick;
+	_commandMap["INVITE"] = &IrcServer::handleInvite;
 }
 
 void IrcServer::checkAndRegister(Client* client) {
@@ -52,7 +53,7 @@ void	IrcServer::handleNick(Client* client, const std::vector<std::string>& param
 
 void	IrcServer::handleUser(Client* client, const std::vector<std::string>& params) {
 	if (params.size() < 4) {
-		sendToClientBuffer(client, std::string(ERR_NEEDMOREPARAMS_VAL) + "* USER" + ERR_NEEDMOREPARAMS_MSG);
+		sendToClientBuffer(client, std::string(ERR_NEEDMOREPARAMS_CODE) + "* USER" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
 	client->setUsername(params[0]);
@@ -65,15 +66,16 @@ void	IrcServer::handlePing(Client* client, const std::vector<std::string>& param
 	sendToClientBuffer(client, ":ircserv PONG ircserv :" + target);
 }
 
+// Syntax: JOIN #channel
 void IrcServer::handleJoin(Client* client, const std::vector<std::string>& params) {
 	if (params.empty()) {
-		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_VAL + client->getNickname() + " JOIN" + ERR_NEEDMOREPARAMS_MSG);
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " JOIN" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
 
 	std::string chanName = params[0];
 	if (chanName.empty() || chanName[0] != '#') {
-		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_VAL + client->getNickname() + " " + chanName + ERR_NOSUCHCHANNEL_MSG);
+		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_CODE + client->getNickname() + " " + chanName + ERR_NOSUCHCHANNEL_MSG);
 		return;
 	}
 
@@ -107,11 +109,12 @@ void IrcServer::handleJoin(Client* client, const std::vector<std::string>& param
 
 }
 
+// Syntax: PRIVMSG nickname :msg
 void	IrcServer::handlePrivmsg(Client* client, const std::vector<std::string>& params) {
 	Client  *reciever = NULL;
 
 	if (params.size() < 2) {
-		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_VAL + client->getNickname() + " PRIVMSG" + ERR_NEEDMOREPARAMS_MSG);
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " PRIVMSG" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
 	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
@@ -136,11 +139,12 @@ void	IrcServer::handlePrivmsg(Client* client, const std::vector<std::string>& pa
 	formatAndSend(reciever, client, NULL, msg, "PRIVMSG");
 }
 
+// Syntax: PRIVMSG #channel :msg
 void	IrcServer::handleChannelMsg(Client* client, const std::vector<std::string>& params) {
 	std::string	channelName = params[0];
 	std::map<std::string, Channel*>::iterator it = _channels.find(channelName);
 	if (it == _channels.end()) {
-		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_VAL + client->getNickname() + " " + channelName + ERR_NOSUCHCHANNEL_MSG);
+		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_CODE + client->getNickname() + " " + channelName + ERR_NOSUCHCHANNEL_MSG);
 		return;
 	}
 	Channel* channel = it->second;
@@ -155,46 +159,53 @@ void	IrcServer::handleChannelMsg(Client* client, const std::vector<std::string>&
 	formatAndSend(NULL, client, channel, msg, "PRIVMSG");
 }
 
-bool	IrcServer::getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName) {
+bool	IrcServer::getInfo(
+	Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember
+) {
 	*channel = NULL;
 	*target = NULL;
 
 	std::map<std::string, Channel*>::iterator it = _channels.find(cName);
 	if (it == _channels.end()) {
-		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_VAL + client->getNickname() + " " + cName + ERR_NOSUCHCHANNEL_MSG);
+		sendToClientBuffer(client, ERR_NOSUCHCHANNEL_CODE + client->getNickname() + " " + cName + ERR_NOSUCHCHANNEL_MSG);
 		return false;
 	}
 	Channel	*chan = it->second;
-	if (!chan->isOperator(client)) {
-		sendToClientBuffer(client, ERR_CHANOPRIVSNEEDED_VAL + client->getNickname() + " " + chan->getName() + ERR_CHANOPRIVSNEEDED_MSG);
-		return false;
+	if (needOp || chan->isInviteOnly()) {
+		if (!chan->isOperator(client)) {
+			sendToClientBuffer(client, ERR_CHANOPRIVSNEEDED_CODE + client->getNickname() + " " + chan->getName() + ERR_CHANOPRIVSNEEDED_MSG);
+			return false;
+		}
 	}
 
 	Client	*clientTarget = findClientByNick(tName);
 	if (!clientTarget) {
-		sendToClientBuffer(client, ERR_NOSUCHNICK_VAL + client->getNickname() + " " + tName + ERR_NOSUCHNICK_MSG);
+		sendToClientBuffer(client, ERR_NOSUCHNICK_CODE + client->getNickname() + " " + tName + ERR_NOSUCHNICK_MSG);
 		return false;
 	}
-	if (!chan->isChannelMember(clientTarget)) {
-		sendToClientBuffer(client, ERR_USERNOTINCHANNEL_VAL + client->getNickname() + " " + clientTarget->getNickname()
-							+ " " + chan->getName() + ERR_USERNOTINCHANNEL_MSG);
-		return false;
+	if (tMember) {
+		if (!chan->isChannelMember(clientTarget)) {
+			sendToClientBuffer(client, ERR_USERNOTINCHANNEL_CODE + client->getNickname() + " " + clientTarget->getNickname()
+								+ " " + chan->getName() + ERR_USERNOTINCHANNEL_MSG);
+			return false;
+		}
 	}
+
 	*channel = chan;
 	*target = clientTarget;
 	return true;
 }
 
-
+// Syntax: MODE #channel +|-o nickname
 void	IrcServer::handleMode(Client* client, const std::vector<std::string>& params) {
 	if (params.size() < 3) {
-		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_VAL + client->getNickname() + " MODE" + ERR_NEEDMOREPARAMS_MSG);
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " MODE" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
 	
 	Channel* channel;
 	Client	*clientTarget;
-	if (!getInfo(client, &channel, &clientTarget, params[0], params[2]))
+	if (!getInfo(client, &channel, &clientTarget, params[0], params[2], true, true))
 		return ;
 
 	std::string	op = params[1];
@@ -204,22 +215,23 @@ void	IrcServer::handleMode(Client* client, const std::vector<std::string>& param
 	} else if (op == "-o") {
 		makeOperator(channel, clientTarget, false);
 	} else {
-		sendToClientBuffer(client, ERR_UMODEUNKNOWNFLAG_VAL + op + ERR_UMODEUNKNOWNFLAG_MSG);
+		sendToClientBuffer(client, ERR_UMODEUNKNOWNFLAG_CODE + op + ERR_UMODEUNKNOWNFLAG_MSG);
 		return ;
 	}
 	formatAndSend(NULL, client, channel, msg, "MODE");
 }
 
+// Syntax: KICK #channel nickname [optional]:comment
 void	IrcServer::handleKick(Client* client, const std::vector<std::string>& params) {
 	if (params.size() < 2) {
-		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_VAL + client->getNickname() + " KICK" + ERR_NEEDMOREPARAMS_MSG);
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " KICK" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
 
 	Channel* channel;
 	Client	*clientTarget;
 
-	if (!getInfo(client, &channel, &clientTarget, params[0], params[1]))
+	if (!getInfo(client, &channel, &clientTarget, params[0], params[1], true, true))
 		return ;
 
 	std::string	comment = client->getNickname();
@@ -229,4 +241,21 @@ void	IrcServer::handleKick(Client* client, const std::vector<std::string>& param
 	std::string	msg = " " + clientTarget->getNickname() + " :" + comment;
 	formatAndSend(NULL, client, channel, msg, "KICK");
 	channel->removeMember(clientTarget->getFd());
+}
+
+// Syntax: INVITE nickname #channel
+void	IrcServer::handleInvite(Client* client, const std::vector<std::string>& params) {
+	if (params.size() < 2) {
+		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " INVITE" + ERR_NEEDMOREPARAMS_MSG);
+		return;
+	}
+
+	Channel	*channel = NULL;
+	Client	*targetClient = NULL;
+	if (!getInfo(client, &channel, &targetClient, params[1], params[0], false, false))
+		return ;
+
+	sendToClientBuffer(client, RPL_INVITING_CODE + client->getNickname() + " " + targetClient->getNickname() + " " + channel->getName());
+	std::string	msg = " :" + channel->getName();
+	formatAndSend(targetClient, client, NULL, msg, " INVITE");	
 }
