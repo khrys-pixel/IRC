@@ -43,8 +43,6 @@
 # define RPL_NOTOPIC_MSG " :No topic is set"
 # define RPL_TOPIC_CODE ":ircserv 332 "
 
-
-
 class IrcServer {
 	private:
 		int					_port;
@@ -61,7 +59,7 @@ class IrcServer {
 		void	setSocketNonBlocking(int fd);
 		void	formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg, const std::string &op);
 		Client	*findClientByNick(const std::string &nick);
-		void	makeOperator(Channel *channel, Client *client, bool status);
+		// void	makeOperator(Channel *channel, Client *client, bool status);
 		bool	getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember);
 
 		// Event handlers
@@ -69,7 +67,6 @@ class IrcServer {
 		void	acceptNewConnection();
 		void	handleClientActivity(int fd, int index);
 		void	disconnectClient(int fd, int index);
-		void	sendToClientBuffer(Client* client, const std::string& message);
 
 		// Command to handler function mapping
 		typedef void (IrcServer::*CommandHandler)(Client* client, const std::vector<std::string>& params);
@@ -92,9 +89,10 @@ class IrcServer {
 		IrcServer(int port, const std::string& password);
 		~IrcServer();
 
-		void run();
-		void parseAndExecute(Client* client, const std::string& commandString);
-		void checkAndRegister(Client* client);
+		void	run();
+		void	parseAndExecute(Client* client, const std::string& commandString);
+		void	checkAndRegister(Client* client);
+		void	sendToClientBuffer(Client* client, const std::string& message);
 };
 
 #endif

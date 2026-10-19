@@ -257,9 +257,9 @@ void	IrcServer::formatAndSend(Client *reciever, Client *sender, Channel *channel
 	}
 }
 
-void	IrcServer::makeOperator(Channel *channel, Client *client, bool status) {
-    if (status == true)
-		channel->addOperator(client);
-	else
-		channel->removeOperator(client->getFd());
-}
+// void	IrcServer::makeOperator(Channel *channel, Client *client, bool status) {
+//     if (status == true)
+// 		channel->addOperator(client);
+// 	else
+// 		channel->removeOperator(client->getFd());
+// }

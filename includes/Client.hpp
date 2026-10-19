@@ -21,6 +21,7 @@ private:
 	bool		_isRegistered;
 	bool		_hasGivenPassword;
 
+
 	std::string	_nickname;
 	std::string	_username;
 	std::string	_realname;

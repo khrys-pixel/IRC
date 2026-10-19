@@ -87,9 +87,17 @@ void IrcServer::handleJoin(Client* client, const std::vector<std::string>& param
 		isFirst = true;
 	}
 	Channel* chan = _channels[chanName];
+	// Check if user can join channel
+	// pass key as param
+	std::string	msg = "";
+	std::string	optionalKey = (params.size() > 1) ? ((params[1].empty()) ? std::string() : params[1]) : std::string();
+	if (!chan->canBeJoined(client, &msg, optionalKey)) {
+		sendToClientBuffer(client, msg);
+		return ;
+	}
 	chan->addMember(client);
 	if (isFirst)
-		makeOperator(chan, client, true);
+		chan->addOperator(client);
 
 	// Broadcast JOIN notification to channel members
 	std::string joinMsg = ":" + client->getHostmask() + " JOIN " + chanName;
@@ -210,16 +218,19 @@ void	IrcServer::handleMode(Client* client, const std::vector<std::string>& param
 		return ;
 
 	std::string	op = params[1];
+	char		opSign = op[0];
+	char		opFlag = op[1];
 	std::string	msg = " " + op + " " + clientTarget->getNickname();
-	if (op == "+o") {
-		makeOperator(channel, clientTarget, true);
-	} else if (op == "-o") {
-		makeOperator(channel, clientTarget, false);
-	} else {
-		sendToClientBuffer(client, ERR_UMODEUNKNOWNFLAG_CODE + op + ERR_UMODEUNKNOWNFLAG_MSG);
-		return ;
+	Channel::t_modeEntry	*modeCmds = Channel::getModeCmds();
+	for (int i = 0; modeCmds[i].funct; i++) {
+		if (modeCmds[i].c == opFlag) {
+			t_modeCmd	cmd = {opSign, opFlag};
+			(channel->*modeCmds[i].funct)(*this, client, cmd, params);
+			formatAndSend(NULL, client, channel, msg, "MODE");
+			return ;
+		}
 	}
-	formatAndSend(NULL, client, channel, msg, "MODE");
+	sendToClientBuffer(client, ERR_UMODEUNKNOWNFLAG_CODE + params[1] + ERR_UMODEUNKNOWNFLAG_MSG);
 }
 
 // Syntax: KICK #channel nickname [:comment]
@@ -256,9 +267,10 @@ void	IrcServer::handleInvite(Client* client, const std::vector<std::string>& par
 	if (!getInfo(client, &channel, &targetClient, params[1], params[0], false, false))
 		return ;
 
+	channel->addInvite(targetClient);
 	sendToClientBuffer(client, RPL_INVITING_CODE + client->getNickname() + " " + targetClient->getNickname() + " " + channel->getName());
 	std::string	msg = " :" + channel->getName();
-	formatAndSend(targetClient, client, NULL, msg, " INVITE");	
+	formatAndSend(targetClient, client, NULL, msg, " INVITE");
 }
 
 // Syntax: TOPIC #channel [newtopic]
@@ -285,7 +297,7 @@ void	IrcServer::handleTopic(Client* client, const std::vector<std::string>& para
 		return ;
 	}
 
-	if (!channel->isOperator(client)) {
+	if (channel->isRestrictedTopic() && !channel->isOperator(client)) {
 		sendToClientBuffer(client, ERR_CHANOPRIVSNEEDED_CODE + client->getNickname() + " " + channel->getName() + ERR_CHANOPRIVSNEEDED_MSG);
 		return ;
 	}

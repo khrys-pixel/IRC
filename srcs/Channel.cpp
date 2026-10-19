@@ -1,7 +1,7 @@
 #include "Channel.hpp"
 
 Channel::Channel(const std::string& name)
-	: _name(name), _inviteOnly(false)
+	: _name(name), _inviteOnly(false), _topicRestriction(true), _userLimit(-1), _passkey("")
 {}
 
 const std::string	&Channel::getName() const { 
@@ -22,6 +22,14 @@ const std::map<int, Client*>	&Channel::getMembers() const {
 
 const std::map<int, Client*>	&Channel::getOperators() const {
 	return _operators;
+}
+
+int	Channel::getUserLimit() {
+	return _userLimit;
+}
+
+void	Channel::setUserLimit(int limit) {
+	_userLimit = limit;
 }
 
 void	Channel::addMember(Client* client) {
@@ -69,4 +77,42 @@ bool	Channel::isChannelMember(Client *client) const {
 
 bool	Channel::isOperator(Client *client) const {
 	return _operators.count(client->getFd()) > 0;
+}
+
+bool	Channel::isRestrictedTopic() {
+	return _topicRestriction;
+}
+
+void	Channel::setTopicRestriction(bool status) {
+	_topicRestriction = status;
+}
+
+void	Channel::setInviteOnly(bool status) {
+	_inviteOnly = status;
+}
+
+bool	Channel::canBeJoined(Client *client, std::string *msg, const std::string &key) {
+	if ((_userLimit != -1 && _members.size() == static_cast<long unsigned int>(_userLimit)) || _userLimit == 0) {
+		*msg = ERR_CHANNELISFULL_CODE + _name + ERR_CHANNELISFULL_MSG;
+		return false;
+	} else if (_inviteOnly == true && _invites.count(client->getFd()) < 1) {
+		*msg = ERR_INVITEONLYCHAN_CODE + _name + ERR_CHANNELISFULL_MSG;
+		return false;
+	} else if (!_passkey.empty() && key != _passkey) {
+		*msg = ERR_BADCHANNELKEY_CODE + _name + ERR_BADCHANNELKEY_MSG;
+		return false;
+	}
+	return true;
+}
+
+void	Channel::addInvite(Client *client) {
+	_invites[client->getFd()] = client;
+}
+
+void	Channel::setKey(const std::string &newKey) {
+	_passkey = newKey;
+}
+
+std::string	&Channel::getKey() {
+	return _passkey;
 }

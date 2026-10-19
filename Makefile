@@ -19,7 +19,7 @@ RM = rm -rf
 SRC_DIR = srcs/
 OBJ_DIR = objs/
 
-SRCS = $(addprefix $(SRC_DIR), main.cpp IrcServer.cpp IrcServerCommands.cpp IrcServerGetCommands.cpp Client.cpp Channel.cpp)
+SRCS = $(addprefix $(SRC_DIR), main.cpp IrcServer.cpp IrcServerCommands.cpp IrcServerGetCommands.cpp Client.cpp Channel.cpp ChannelCommands.cpp)
 OBJS = $(SRCS:.cpp=.o)
 OBJS := $(patsubst $(SRC_DIR)%, $(OBJ_DIR)%, $(OBJS))
 
