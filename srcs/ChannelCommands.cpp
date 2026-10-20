@@ -21,8 +21,7 @@ void	Channel::modeT(IrcServer &server, Client *client, t_modeCmd cmd, const std:
 	(void)server;
 	(void)client;
 	(void)params;
-	(void)cmd;
-	// to do
+	(cmd.sign == '+') ? this->setTopicRestriction(true) : this->setTopicRestriction(false);
 }
 
 void	Channel::modeK(IrcServer &server, Client *client, t_modeCmd cmd, const std::vector<std::string>& params) {
@@ -50,8 +49,11 @@ void	Channel::modeK(IrcServer &server, Client *client, t_modeCmd cmd, const std:
 }
 
 void	Channel::modeO(IrcServer &server, Client *client, t_modeCmd cmd, const std::vector<std::string>& params) {
-	(void)server;
-	(void)params;
+	if (params.size() < 3) {
+		server.sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " MODE" + ERR_NEEDMOREPARAMS_MSG);
+		return;
+	}
+
 	(cmd.sign == '+') ? this->addOperator(client) : this->removeOperator(client->getFd());
 }
 

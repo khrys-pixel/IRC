@@ -169,7 +169,7 @@ void	IrcServer::handleChannelMsg(Client* client, const std::vector<std::string>&
 }
 
 bool	IrcServer::getInfo(
-	Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember
+	Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember, bool needTarget
 ) {
 	*channel = NULL;
 	*target = NULL;
@@ -188,11 +188,11 @@ bool	IrcServer::getInfo(
 	}
 
 	Client	*clientTarget = findClientByNick(tName);
-	if (!clientTarget) {
+	if (!clientTarget && needTarget) {
 		sendToClientBuffer(client, ERR_NOSUCHNICK_CODE + client->getNickname() + " " + tName + ERR_NOSUCHNICK_MSG);
 		return false;
 	}
-	if (tMember) {
+	if (tMember && needTarget) {
 		if (!chan->isChannelMember(clientTarget)) {
 			sendToClientBuffer(client, ERR_USERNOTINCHANNEL_CODE + client->getNickname() + " " + clientTarget->getNickname()
 								+ " " + chan->getName() + ERR_USERNOTINCHANNEL_MSG);
@@ -205,28 +205,33 @@ bool	IrcServer::getInfo(
 	return true;
 }
 
-// Syntax: MODE #channel +|-o nickname
+// Syntax: MODE #channel|nickname [[+|-]modechars [parameters]]
 void	IrcServer::handleMode(Client* client, const std::vector<std::string>& params) {
-	if (params.size() < 3) {
+	if (params.size() < 2) {
 		sendToClientBuffer(client, ERR_NEEDMOREPARAMS_CODE + client->getNickname() + " MODE" + ERR_NEEDMOREPARAMS_MSG);
 		return;
 	}
 	
-	Channel* channel;
-	Client	*clientTarget;
-	if (!getInfo(client, &channel, &clientTarget, params[0], params[2], true, true))
-		return ;
-
 	std::string	op = params[1];
+	if (op.size() < 2) {
+		sendToClientBuffer(client, ERR_UMODEUNKNOWNFLAG_CODE + op + ERR_UMODEUNKNOWNFLAG_MSG);
+		return;
+	}
 	char		opSign = op[0];
 	char		opFlag = op[1];
-	std::string	msg = " " + op + " " + clientTarget->getNickname();
+
+	Channel* channel;
+	Client	*clientTarget;
+	if (!getInfo(client, &channel, &clientTarget, params[0], params[2], true, true, opFlag == 'o'))
+		return ;
+
+	std::string	msgTarget = " " + op + " " + (clientTarget ? clientTarget->getNickname() : "");
 	Channel::t_modeEntry	*modeCmds = Channel::getModeCmds();
 	for (int i = 0; modeCmds[i].funct; i++) {
 		if (modeCmds[i].c == opFlag) {
 			t_modeCmd	cmd = {opSign, opFlag};
 			(channel->*modeCmds[i].funct)(*this, client, cmd, params);
-			formatAndSend(NULL, client, channel, msg, "MODE");
+			formatAndSend(NULL, client, channel, msgTarget, "MODE");
 			return ;
 		}
 	}
@@ -243,7 +248,7 @@ void	IrcServer::handleKick(Client* client, const std::vector<std::string>& param
 	Channel* channel;
 	Client	*clientTarget;
 
-	if (!getInfo(client, &channel, &clientTarget, params[0], params[1], true, true))
+	if (!getInfo(client, &channel, &clientTarget, params[0], params[1], true, true, true))
 		return ;
 
 	std::string	comment = client->getNickname();
@@ -264,7 +269,7 @@ void	IrcServer::handleInvite(Client* client, const std::vector<std::string>& par
 
 	Channel	*channel = NULL;
 	Client	*targetClient = NULL;
-	if (!getInfo(client, &channel, &targetClient, params[1], params[0], false, false))
+	if (!getInfo(client, &channel, &targetClient, params[1], params[0], false, false, true))
 		return ;
 
 	channel->addInvite(targetClient);

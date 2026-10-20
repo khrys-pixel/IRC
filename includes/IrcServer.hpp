@@ -60,7 +60,7 @@ class IrcServer {
 		void	formatAndSend(Client *reciever, Client *sender, Channel *channel, const std::string &msg, const std::string &op);
 		Client	*findClientByNick(const std::string &nick);
 		// void	makeOperator(Channel *channel, Client *client, bool status);
-		bool	getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember);
+		bool	getInfo(Client *client, Channel **channel, Client **target, const std::string &cName, const std::string &tName, bool needOp, bool tMember, bool needTarget);
 
 		// Event handlers
 		void	executeCommand(Client *client, std::string &command, std::vector<std::string> &parameters);
